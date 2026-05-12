@@ -151,6 +151,44 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/scans" `
   -Body '{"ep":"E28069995000050008D040989"}'
 ```
 
+### See the HTTP status, headers, and body (errors included)
+
+By default, `curl.exe` only prints the **response body**. To debug, add **`-i`** (`--include`) so you also see the **status line** (for example `HTTP/1.1 400 Bad Request`) and **response headers** before the body. That is how you confirm whether the failure is **400** (bad JSON / missing EPC), **500** (server/Firestore), or **200** (OK).
+
+**PowerShell — POST (test scan), show status + headers + body:**
+
+```powershell
+curl.exe -i -X POST "http://localhost:3000/api/scans" -H "content-type: application/json" -d '{"ep":"E28069995000050008D040989"}'
+```
+
+**PowerShell — POST with `epc` to `/api/scan`:**
+
+```powershell
+curl.exe -i -X POST "http://localhost:3000/api/scan" -H "content-type: application/json" -d '{"epc":"E28069995000050008D040989"}'
+```
+
+**PowerShell — GET all scans (same idea):**
+
+```powershell
+curl.exe -i "http://localhost:3000/api/scans"
+```
+
+**Extra detail (DNS, TCP, TLS, request headers)** — use **`-v`** (verbose). Combine with **`-i`** if you want response headers too:
+
+```powershell
+curl.exe -v -i -X POST "http://localhost:3000/api/scans" -H "content-type: application/json" -d '{"ep":"E28069995000050008D040989"}'
+```
+
+**Print only the numeric HTTP code** after the body (handy in scripts):
+
+```powershell
+curl.exe -s -o - -w "`nHTTP_STATUS:%{http_code}`n" -X POST "http://localhost:3000/api/scans" -H "content-type: application/json" -d '{"ep":"E28069995000050008D040989"}'
+```
+
+(`-s` = silent progress; `-o -` = write response body to stdout; `` `n `` = newline in PowerShell.)
+
+**Where else to look:** if the status is **500**, open the terminal where **`npm run dev`** is running — failed API routes log a short message there (`console.error`) while the JSON body stays `{ "success": false, "epc": "..." }`.
+
 ### macOS / Linux
 
 ```bash
@@ -165,6 +203,12 @@ Then refresh the dashboard (or wait for the next poll); the EPC should appear wi
 
 ```bash
 curl http://localhost:3000/api/scans
+```
+
+**Include status and headers (macOS / Linux):**
+
+```bash
+curl -i http://localhost:3000/api/scans
 ```
 
 ## Pointing the Chainway C72 at this app
@@ -186,3 +230,4 @@ Configure the reader’s HTTP POST URL to your deployed origin (or LAN IP) plus 
 - **Empty dashboard after successful curl** — confirm Firestore project ID in the service account matches the project where you expect data; check collection `rfid_scans` in the console.
 - **`{"success":false,"epc":""}` in PowerShell** — almost always a bad request body. Do not use `\"...\"` inside double quotes for `-d`. Use `-d '{"ep":"..."}'` or `Invoke-RestMethod` as in the Windows examples above.
 - **`curl: (3) URL rejected: Port number was not a decimal number...`** — usually a mangled command (line breaks / stray characters / smart quotes). Prefer the **single-line** `curl.exe` example; quote the URL (`"http://localhost:3000/..."`).
+- **Seeing the real HTTP error** — use **`curl.exe -i`** as in the section **See the HTTP status, headers, and body (errors included)** above. **400** + `{"success":false,"epc":""}` usually means the JSON body did not reach the server correctly (PowerShell quoting). **500** means a server/Firestore problem; check the **`npm run dev`** terminal output.
